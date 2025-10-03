@@ -837,8 +837,6 @@ static const char *parseBulkLen(const char *p, const char *end, uint64_t *len) {
 
     *len = acc;
     return p;
-
-
 }
 
 /* Find the next argument in a command buffer, i.e. find the next bulkstring
@@ -882,6 +880,7 @@ static const char *nextArgument(const char *buf, size_t buflen, const char **str
 
     if ((size_t)(end - buf) == buflen) /* No more data in buffer? */
         return NULL;
+
     return end;
 
 error:
