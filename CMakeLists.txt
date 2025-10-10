@@ -206,7 +206,7 @@ IF(ENABLE_TLS)
       # Produce object files that contain debug info.
       target_compile_options(valkey_tls PRIVATE /Z7)
     endif()
-    TARGET_LINK_LIBRARIES(valkey_tls PRIVATE OpenSSL::SSL)
+    TARGET_LINK_LIBRARIES(valkey_tls PRIVATE valkey OpenSSL::SSL)
     if(WIN32 OR CYGWIN)
         target_link_libraries(valkey_tls PRIVATE valkey)
     endif()
@@ -308,31 +308,61 @@ if(ENABLE_RDMA)
         DESTINATION ${CMAKE_CONF_INSTALL_DIR})
 endif()
 
-# Add tests
-if(NOT DISABLE_TESTS)
-  if(BUILD_SHARED_LIBS)
-    # Test using a static library since symbols are not hidden then.
-    # Use same source, include dirs and dependencies as the shared library.
-    add_library(valkey_unittest STATIC ${valkey_sources})
-    get_target_property(include_directories valkey::valkey INCLUDE_DIRECTORIES)
-    target_include_directories(valkey_unittest PUBLIC ${include_directories})
-    get_target_property(link_libraries valkey::valkey LINK_LIBRARIES)
-    if(link_libraries)
-      target_link_libraries(valkey_unittest PUBLIC ${link_libraries})
-    endif()
-    # Create libvalkey_unittest.a in the tests directory.
-    set_target_properties(valkey_unittest PROPERTIES
-      ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/tests")
-  else()
-    # Target is an alias for the static library.
-    add_library(valkey_unittest ALIAS valkey)
-  endif()
+# Always build a static core for tests, independent of BUILD_SHARED_LIBS.
+add_library(valkey_unittest STATIC ${valkey_sources})
+target_include_directories(valkey_unittest PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/valkey>
+  $<BUILD_INTERFACE:${DICT_INCLUDE_DIR}>
+  $<BUILD_INTERFACE:${SDS_INCLUDE_DIR}>
+)
+# Mirror public link bits from shared core (m, socket, ws2_32, etc.).
+get_target_property(_vk_links valkey LINK_LIBRARIES)
+if(_vk_links)
+  target_link_libraries(valkey_unittest PUBLIC ${_vk_links})
+endif()
+set_target_properties(valkey_unittest PROPERTIES
+  OUTPUT_NAME valkey_unittest
+  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/tests"
+)
 
-  # Make sure ctest prints the output when a test fails.
-  # Must be set before including CTest.
+if(NOT DISABLE_TESTS)
+  # Make sure ctest prints output on failure.
   set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
   include(CTest)
+
   add_subdirectory(tests)
+endif()
+
+if(ENABLE_TLS)
+  add_library(valkey_tls_unittest STATIC src/tls.c)
+  target_include_directories(valkey_tls_unittest PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/valkey>
+    $<BUILD_INTERFACE:${DICT_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${SDS_INCLUDE_DIR}>
+  )
+  # Static TLS links the static core for tests.
+  target_link_libraries(valkey_tls_unittest PRIVATE
+    valkey_unittest OpenSSL::SSL
+  )
+  set_target_properties(valkey_tls_unittest PROPERTIES
+    OUTPUT_NAME valkey_tls_unittest
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/tests"
+  )
+endif()
+if(ENABLE_RDMA)
+  add_library(valkey_rdma_unittest STATIC src/rdma.c)
+  target_include_directories(valkey_rdma_unittest PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/valkey>
+    $<BUILD_INTERFACE:${DICT_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${SDS_INCLUDE_DIR}>
+  )
+  target_link_libraries(valkey_rdma_unittest PRIVATE
+    valkey_unittest ${RDMACM_LIBRARIES} ${IBVERBS_LIBRARIES}
+  )
+  set_target_properties(valkey_rdma_unittest PROPERTIES
+    OUTPUT_NAME valkey_rdma_unittest
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/tests"
+  )
 endif()
 
 # Add examples
