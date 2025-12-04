@@ -203,8 +203,7 @@ else ifeq ($(uname_S),SunOS)
   CC_VERSION := $(shell $(CC) -V 2>&1 || echo unknown)
   ifneq (,$(findstring Sun C,$(CC_VERSION)))
     HAVE_SUN_CC := 1
-  endif
-  ifneq (,$(findstring Studio,$(CC_VERSION)))
+  else ifneq (,$(findstring Studio,$(CC_VERSION)))
     HAVE_SUN_CC := 1
   endif
 
