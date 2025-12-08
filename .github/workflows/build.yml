@@ -83,14 +83,11 @@ jobs:
           run: USE_TLS=1 gmake
 
   solaris-developer-studio:
-     name: Oracle DeveloperStudio [threads=${{ matrix.use_threads }}, tls=${{ matrix.use_tls }}]
+     name: Oracle DeveloperStudio
      runs-on: ubuntu-24.04
 
      strategy:
        fail-fast: false
-       matrix:
-         use_threads: [0, 1]
-         use_tls: [0, 1]
 
      env:
        PKG_ORACLE_CERT: ${{ secrets.PKG_ORACLE_CERT }}
@@ -99,9 +96,6 @@ jobs:
      steps:
        - name: Checkout
          uses: actions/checkout@v4
-
-       - name: Clean project
-         run: git clean -xfd
 
        - name: Transfer Oracle Studio certificates
          run: |
@@ -113,12 +107,8 @@ jobs:
 
        - name: Build on Solaris
          uses: vmactions/solaris-vm@v1.1.8
-         env:
-           USE_THREADS: ${{ matrix.use_threads }}
-           USE_TLS: ${{ matrix.use_tls }}
          with:
            usesh: true
-           envs: 'USE_THREADS USE_TLS'
            prepare: |
              set -e
 
@@ -141,9 +131,7 @@ jobs:
              PATH=/opt/developerstudio12.6/bin:"$PATH"
              export PATH
 
-             echo "BUILD: USE_THREADS=$USE_THREADS, USE_TLS=$USE_TLS"
-
-             gmake -j"$(psrinfo -p)"
+             gmake USE_THREADS=1 USE_TLS=1 -j"$(psrinfo -p)"
   build-cross:
     name: Cross-compile ${{ matrix.config.target }}
     runs-on: ubuntu-22.04
