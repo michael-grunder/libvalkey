@@ -6,6 +6,7 @@
 #include "../valkey.h"
 
 #include <hv/hloop.h>
+#include <stdint.h>
 
 typedef struct valkeyLibhvEvents {
     hio_t *io;
@@ -61,13 +62,28 @@ static void valkeyLibhvTimeout(htimer_t *timer) {
     valkeyAsyncHandleTimeout((valkeyAsyncContext *)hevent_userdata(io));
 }
 
+static uint32_t valkeyLibhvTimevalToMillis(struct timeval tv) {
+    uint64_t millis = 0;
+
+    if (tv.tv_sec > 0) {
+        if ((uint64_t)tv.tv_sec > UINT32_MAX / 1000)
+            return UINT32_MAX;
+        millis = (uint64_t)tv.tv_sec * 1000;
+    }
+
+    if (tv.tv_usec)
+        millis += ((uint64_t)tv.tv_usec + 999) / 1000;
+
+    return millis > UINT32_MAX ? UINT32_MAX : (uint32_t)millis;
+}
+
 static void valkeyLibhvSetTimeout(void *privdata, struct timeval tv) {
     valkeyLibhvEvents *events;
     uint32_t millis;
     hloop_t *loop;
 
     events = (valkeyLibhvEvents *)privdata;
-    millis = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    millis = valkeyLibhvTimevalToMillis(tv);
 
     if (millis == 0) {
         /* Libhv disallows zero'd timers so treat this as a delete or NO OP */
