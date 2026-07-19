@@ -17,6 +17,7 @@ This document describes using `libvalkey` in standalone (non-cluster) mode, incl
   - [Reader configuration](#reader-configuration)
     - [Input buffer size](#maximum-input-buffer-size)
     - [Maximum array elements](#maximum-array-elements)
+    - [Maximum reply nesting depth](#maximum-reply-nesting-depth)
     - [RESP3 Push Replies](#resp3-push-replies)
     - [Allocator injection](#allocator-injection)
 - [Asynchronous API](#asynchronous-api)
@@ -238,6 +239,14 @@ By default, libvalkey will refuse to parse array-like replies if they have more 
 
 ```c
 context->reader->maxelements = 0;
+```
+
+#### Maximum reply nesting depth
+
+By default, the libvalkey reply parser limits nested aggregate replies to a depth of `VALKEY_READER_MAX_REPLY_DEPTH` (currently 1024). If you need to process replies nested more deeply, you can increase the value or set it to zero, meaning unlimited.
+
+```c
+context->reader->maxdepth = 0;
 ```
 
 #### RESP3 Push Replies

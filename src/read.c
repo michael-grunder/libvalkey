@@ -517,6 +517,12 @@ static int processAggregateItem(valkeyReader *r) {
     long long elements;
     int root = 0, len;
 
+    if (r->maxdepth > 0 && r->ridx >= r->maxdepth) {
+        valkeyReaderSetError(r, VALKEY_ERR_PROTOCOL,
+                             "Max nesting depth exceeded");
+        return VALKEY_ERR;
+    }
+
     if (r->ridx == r->tasks - 1) {
         if (valkeyReaderGrow(r) == VALKEY_ERR)
             return VALKEY_ERR;
@@ -713,6 +719,7 @@ valkeyReader *valkeyReaderCreateWithFunctions(valkeyReplyObjectFunctions *fn) {
     r->fn = fn;
     r->maxbuf = VALKEY_READER_MAX_BUF;
     r->maxelements = VALKEY_READER_MAX_ARRAY_ELEMENTS;
+    r->maxdepth = VALKEY_READER_MAX_REPLY_DEPTH;
     r->ridx = -1;
 
     return r;
