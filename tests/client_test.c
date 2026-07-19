@@ -574,6 +574,46 @@ static void test_reply_reader(void) {
     freeReplyObject(root);
     valkeyReaderFree(reader);
 
+    test("Reader sets a default maximum nesting depth: ");
+    reader = valkeyReaderCreate();
+    test_cond(reader->maxdepth == VALKEY_READER_MAX_REPLY_DEPTH);
+    valkeyReaderFree(reader);
+
+    test("Can parse a reply at the maximum nesting depth: ");
+    reader = valkeyReaderCreate();
+    reader->fn = NULL;
+    for (i = 0; i < VALKEY_READER_MAX_REPLY_DEPTH; i++) {
+        valkeyReaderFeed(reader, (char *)"*1\r\n", 4);
+    }
+    valkeyReaderFeed(reader, (char *)"+OK\r\n", 5);
+    ret = valkeyReaderGetReply(reader, &reply);
+    test_cond(ret == VALKEY_OK && reply == (void *)VALKEY_REPLY_ARRAY);
+    valkeyReaderFree(reader);
+
+    test("Set error when nesting depth exceeds the configured maximum: ");
+    reader = valkeyReaderCreate();
+    for (i = 0; i <= VALKEY_READER_MAX_REPLY_DEPTH; i++) {
+        valkeyReaderFeed(reader, (char *)"*1\r\n", 4);
+    }
+    valkeyReaderFeed(reader, (char *)"+OK\r\n", 5);
+    ret = valkeyReaderGetReply(reader, &reply);
+    test_cond(ret == VALKEY_ERR &&
+              strcasecmp(reader->errstr, "Max nesting depth exceeded") == 0);
+    freeReplyObject(reply);
+    valkeyReaderFree(reader);
+
+    test("Can disable the maximum nesting depth: ");
+    reader = valkeyReaderCreate();
+    reader->maxdepth = 0;
+    reader->fn = NULL;
+    for (i = 0; i <= VALKEY_READER_MAX_REPLY_DEPTH; i++) {
+        valkeyReaderFeed(reader, (char *)"*1\r\n", 4);
+    }
+    valkeyReaderFeed(reader, (char *)"+OK\r\n", 5);
+    ret = valkeyReaderGetReply(reader, &reply);
+    test_cond(ret == VALKEY_OK && reply == (void *)VALKEY_REPLY_ARRAY);
+    valkeyReaderFree(reader);
+
     test("Correctly parses LLONG_MAX: ");
     reader = valkeyReaderCreate();
     valkeyReaderFeed(reader, ":9223372036854775807\r\n", 22);
